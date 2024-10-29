@@ -1,0 +1,167 @@
+import SwiftUI
+
+struct LoginView: View {
+    @State private var username: String = ""
+    @State private var password: String = ""
+    @State private var isLoggedIn: Bool = false
+
+    var body: some View {
+        if isLoggedIn {
+            ContentView()
+        } else {
+            VStack {
+                Text("Welcome to Pocket Planner")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.blue)
+                    .padding(.bottom, 20)
+
+                TextField("Username", text: $username)
+                    .padding()
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(10)
+                    .padding(.bottom, 10)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                SecureField("Password", text: $password)
+                    .padding()
+                    .background(Color.gray.opacity(0.2))
+                    .cornerRadius(10)
+                    .padding(.bottom, 20)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                Button(action: {
+                    // Basic login logic
+                    if !username.isEmpty && !password.isEmpty {
+                        withAnimation {
+                            isLoggedIn = true
+                        }
+                    }
+                }) {
+                    Text("Login")
+                        .fontWeight(.bold)
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                }
+                .padding(.horizontal, 40)
+            }
+            .padding()
+            .background(Color.white)
+            .cornerRadius(20)
+            .shadow(radius: 10)
+            .padding(.horizontal, 20)
+            .animation(.easeInOut(duration: 0.5), value: isLoggedIn)
+        }
+    }
+}
+
+struct ContentView: View {
+    @State private var expenses: Double = 0.0
+    @State private var revenue: Double = 0.0
+    @State private var newExpense: String = ""
+    @State private var newRevenue: String = ""
+
+    var netProfit: Double {
+        return revenue - expenses
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                Text("Pocket Planner")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.purple)
+                    .padding()
+
+                // Expenses Section
+                VStack(alignment: .leading) {
+                    Text("Expenses: $\(expenses, specifier: "%.2f")")
+                        .font(.title2)
+                        .foregroundColor(.red)
+                        .padding(.bottom, 5)
+
+                    HStack {
+                        TextField("Add expense", text: $newExpense)
+                            .keyboardType(.decimalPad) // Specify directly, this should work with iOS 15 and later
+                            .padding()
+                            .background(Color.gray.opacity(0.2))
+                            .cornerRadius(10)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                        Button(action: {
+                            if let expenseAmount = Double(newExpense) {
+                                withAnimation(.easeInOut) {
+                                    expenses += expenseAmount
+                                }
+                                newExpense = ""
+                            }
+                        }) {
+                            Text("Add Expense")
+                                .padding()
+                                .background(Color.red)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding(.bottom, 20)
+                }
+
+                // Revenue Section
+                VStack(alignment: .leading) {
+                    Text("Revenue: $\(revenue, specifier: "%.2f")")
+                        .font(.title2)
+                        .foregroundColor(.green)
+                        .padding(.bottom, 5)
+
+                    HStack {
+                        TextField("Add revenue", text: $newRevenue)
+                            .keyboardType(.decimalPad)   // Specify directly, this should work with iOS 15 and later
+                            .padding()
+                            .background(Color.gray.opacity(0.2))
+                            .cornerRadius(10)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                        Button(action: {
+                            if let revenueAmount = Double(newRevenue) {
+                                withAnimation(.easeInOut) {
+                                    revenue += revenueAmount
+                                }
+                                newRevenue = ""
+                            }
+                        }) {
+                            Text("Add Revenue")
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding(.bottom, 20)
+                }
+
+                // Net Profit Section
+                Text("Net Profit: $\(netProfit, specifier: "%.2f")")
+                    .font(.title)
+                    .foregroundColor(netProfit >= 0 ? .green : .red)
+                    .padding(.top, 20)
+                    .scaleEffect(netProfit >= 0 ? 1.1 : 1.0)
+                    .animation(.spring(), value: netProfit)
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Pocket Planner")
+            .background(Color.gray.opacity(0.1).ignoresSafeArea())
+        }
+    }
+}
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        LoginView()
+    }
+}
