@@ -1,63 +1,123 @@
 import SwiftUI
+import SQLite3
 
-struct LoginView: View {
-    @State private var username: String = ""
-    @State private var password: String = ""
-    @State private var isLoggedIn: Bool = false
+// Color extension to create Color from HEX
+extension Color {
+    init(hex: String) {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
 
-    var body: some View {
-        if isLoggedIn {
-            ContentView()
-        } else {
-            VStack {
-                Text("Welcome to Pocket Planner")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
-                    .foregroundColor(.blue)
-                    .padding(.bottom, 20)
+        var rgb: UInt64 = 0
+        Scanner(string: hexSanitized).scanHexInt64(&rgb)
 
-                TextField("Username", text: $username)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(10)
-                    .padding(.bottom, 10)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
+        let r = Double((rgb >> 16) & 0xFF) / 255
+        let g = Double((rgb >> 8) & 0xFF) / 255
+        let b = Double(rgb & 0xFF) / 255
 
-                SecureField("Password", text: $password)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(10)
-                    .padding(.bottom, 20)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-
-                Button(action: {
-                    // Basic login logic
-                    if !username.isEmpty && !password.isEmpty {
-                        withAnimation {
-                            isLoggedIn = true
-                        }
-                    }
-                }) {
-                    Text("Login")
-                        .fontWeight(.bold)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-                .padding(.horizontal, 40)
-            }
-            .padding()
-            .background(Color.white)
-            .cornerRadius(20)
-            .shadow(radius: 10)
-            .padding(.horizontal, 20)
-            .animation(.easeInOut(duration: 0.5), value: isLoggedIn)
-        }
+        self.init(red: r, green: g, blue: b)
     }
 }
 
+// Database Manager Class
+class DatabaseManager {
+    var db: OpaquePointer?
+
+    init() {
+        // Initialize the database
+        openDatabase()
+        createTable()
+    }
+
+    func openDatabase() {
+        // Set the path to your SQLite database
+        let fileUrl = try! FileManager.default
+            .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            .appendingPathComponent("PocketPlanner.sqlite")
+
+        if sqlite3_open(fileUrl.path, &db) != SQLITE_OK {
+            print("Error opening database")
+        }
+    }
+
+    func createTable() {
+        // Create Users Table
+        let createUsersTableQuery = """
+        CREATE TABLE IF NOT EXISTS Users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE,
+            password TEXT
+        );
+        """
+        if sqlite3_exec(db, createUsersTableQuery, nil, nil, nil) != SQLITE_OK {
+            print("Error creating Users table")
+        }
+
+        // Create Expenses Table
+        let createExpensesTableQuery = """
+        CREATE TABLE IF NOT EXISTS Expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT,
+            amount REAL,
+            date TEXT,
+            userId INTEGER,
+            FOREIGN KEY(userId) REFERENCES Users(id)
+        );
+        """
+        if sqlite3_exec(db, createExpensesTableQuery, nil, nil, nil) != SQLITE_OK {
+            print("Error creating Expenses table")
+        }
+    }
+
+    func registerUser(username: String, password: String) -> Bool {
+        let insertQuery = "INSERT INTO Users (username, password) VALUES (?, ?);"
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, insertQuery, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_text(statement, 1, (username as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 2, (password as NSString).utf8String, -1, nil)
+
+            if sqlite3_step(statement) == SQLITE_DONE {
+                print("User registered successfully.")
+                return true
+            } else {
+                print("Could not register user.")
+                return false
+            }
+        } else {
+            let errorMessage = String(cString: sqlite3_errmsg(db))
+            print("Error preparing registration statement: \(errorMessage)")
+            return false
+        }
+        sqlite3_finalize(statement)
+    }
+
+    func loginUser(username: String, password: String) -> Bool {
+        let selectQuery = "SELECT * FROM Users WHERE username = ? AND password = ?;"
+        var statement: OpaquePointer?
+
+        if sqlite3_prepare_v2(db, selectQuery, -1, &statement, nil) == SQLITE_OK {
+            sqlite3_bind_text(statement, 1, (username as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(statement, 2, (password as NSString).utf8String, -1, nil)
+
+            if sqlite3_step(statement) == SQLITE_ROW {
+                print("User logged in successfully.")
+                return true
+            } else {
+                print("Login failed.")
+                return false
+            }
+        } else {
+            let errorMessage = String(cString: sqlite3_errmsg(db))
+            print("Error preparing login statement: \(errorMessage)")
+            return false
+        }
+        sqlite3_finalize(statement)
+    }
+
+    // Add more functions for expenses (insert, fetch, etc.) here...
+}
+
+// Main Content View
 struct ContentView: View {
     @State private var expenses: Double = 0.0
     @State private var revenue: Double = 0.0
@@ -71,32 +131,35 @@ struct ContentView: View {
     var body: some View {
         NavigationView {
             VStack {
+                Image("GatorImage") // Replace with your image name
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 200)
+
                 Text("Pocket Planner")
                     .font(.largeTitle)
                     .fontWeight(.bold)
-                    .foregroundColor(.purple)
+                    .foregroundColor(.white)
                     .padding()
 
                 // Expenses Section
                 VStack(alignment: .leading) {
                     Text("Expenses: $\(expenses, specifier: "%.2f")")
                         .font(.title2)
-                        .foregroundColor(.red)
                         .padding(.bottom, 5)
+                        .foregroundColor(.white)
+
 
                     HStack {
                         TextField("Add expense", text: $newExpense)
-                            .keyboardType(.decimalPad) // Specify directly, this should work with iOS 15 and later
+                            .keyboardType(.decimalPad)
                             .padding()
-                            .background(Color.gray.opacity(0.2))
+                            .background(Color(UIColor.systemGray6))
                             .cornerRadius(10)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
 
                         Button(action: {
                             if let expenseAmount = Double(newExpense) {
-                                withAnimation(.easeInOut) {
-                                    expenses += expenseAmount
-                                }
+                                expenses += expenseAmount
                                 newExpense = ""
                             }
                         }) {
@@ -114,22 +177,20 @@ struct ContentView: View {
                 VStack(alignment: .leading) {
                     Text("Revenue: $\(revenue, specifier: "%.2f")")
                         .font(.title2)
-                        .foregroundColor(.green)
                         .padding(.bottom, 5)
+                        .foregroundColor(.white)
+
 
                     HStack {
                         TextField("Add revenue", text: $newRevenue)
-                            .keyboardType(.decimalPad)   // Specify directly, this should work with iOS 15 and later
+                            .keyboardType(.decimalPad)
                             .padding()
-                            .background(Color.gray.opacity(0.2))
+                            .background(Color(UIColor.systemGray6))
                             .cornerRadius(10)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
 
                         Button(action: {
                             if let revenueAmount = Double(newRevenue) {
-                                withAnimation(.easeInOut) {
-                                    revenue += revenueAmount
-                                }
+                                revenue += revenueAmount
                                 newRevenue = ""
                             }
                         }) {
@@ -146,16 +207,127 @@ struct ContentView: View {
                 // Net Profit Section
                 Text("Net Profit: $\(netProfit, specifier: "%.2f")")
                     .font(.title)
-                    .foregroundColor(netProfit >= 0 ? .green : .red)
+                    .bold()
                     .padding(.top, 20)
-                    .scaleEffect(netProfit >= 0 ? 1.1 : 1.0)
-                    .animation(.spring(), value: netProfit)
+                    .foregroundColor(.white)
+
 
                 Spacer()
             }
             .padding()
-            .navigationTitle("Pocket Planner")
-            .background(Color.gray.opacity(0.1).ignoresSafeArea())
+            .background(Color(hex: "#013088")) // Replace with your HEX color
+            .foregroundColor(.white)
+        }
+    }
+}
+
+// Login View
+struct LoginView: View {
+    @State private var username: String = ""
+    @State private var password: String = ""
+    @State private var isLoggedIn: Bool = false
+    @State private var showRegisterMessage: Bool = false
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                TextField("Username", text: $username)
+                    .padding()
+                    .background(Color(UIColor.systemGray6))
+                    .cornerRadius(10)
+
+                SecureField("Password", text: $password)
+                    .padding()
+                    .background(Color(UIColor.systemGray6))
+                    .cornerRadius(10)
+
+                Button("Login") {
+                    if DatabaseManager().loginUser(username: username, password: password) {
+                        isLoggedIn = true
+                    } else {
+                        showRegisterMessage = true
+                    }
+                }
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+
+                if showRegisterMessage {
+                    Text("Please register if you don't have an account.")
+                        .foregroundColor(.red)
+                        .padding()
+                }
+
+                NavigationLink(destination: RegistrationView()) {
+                    Text("Register")
+                }
+            }
+            .padding()
+            .navigationTitle("Login")
+        }
+        .fullScreenCover(isPresented: $isLoggedIn) {
+            // Redirect to main app view after successful login
+            ContentView()
+        }
+    }
+}
+
+// Registration View
+struct RegistrationView: View {
+    @State private var username: String = ""
+    @State private var password: String = ""
+    @State private var isRegistered: Bool = false
+
+    var body: some View {
+        VStack {
+            TextField("Username", text: $username)
+                .padding()
+                .background(Color(UIColor.systemGray6))
+                .cornerRadius(10)
+
+            SecureField("Password", text: $password)
+                .padding()
+                .background(Color(UIColor.systemGray6))
+                .cornerRadius(10)
+
+            Button("Register") {
+                if DatabaseManager().registerUser(username: username, password: password) {
+                    isRegistered = true
+                }
+            }
+            .padding()
+            .background(Color.green)
+            .foregroundColor(.white)
+            .cornerRadius(10)
+
+            if isRegistered {
+                Text("Registration successful! Please log in.")
+                    .foregroundColor(.green)
+                    .padding()
+            }
+        }
+        .padding()
+        .navigationTitle("Register")
+        .onChange(of: isRegistered) { newValue in
+            if newValue {
+                // Navigate back to the login screen after successful registration
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                    isRegistered = false
+                    // Dismiss the registration view
+                    // You can use environment dismiss if you want to go back to the previous screen
+                }
+            }
+        }
+    }
+}
+
+// Main app struct
+@main
+struct PocketPlannerApp: App {
+    var body: some Scene {
+        WindowGroup {
+            LoginView() // Start with the login view
         }
     }
 }
