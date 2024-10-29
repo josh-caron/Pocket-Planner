@@ -1,1 +1,44 @@
+import SQLite3
 
+class DatabaseManager {
+    var db: OpaquePointer?
+
+    init() {
+        self.openDatabase()
+        self.createTable()
+    }
+
+    // Open the database
+    func openDatabase() {
+        let fileURL = try! FileManager.default
+            .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
+            .appendingPathComponent("PocketPlanner.sqlite")
+
+        if sqlite3_open(fileURL.path, &db) != SQLITE_OK {
+            print("Error opening database")
+        } else {
+            print("Successfully opened connection to database at \(fileURL.path)")
+        }
+    }
+
+    // Create Expenses table
+    func createTable() {
+        let createTableQuery = """
+        CREATE TABLE IF NOT EXISTS Expenses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT,
+            amount REAL,
+            date TEXT
+        );
+        """
+
+        if sqlite3_exec(db, createTableQuery, nil, nil, nil) != SQLITE_OK {
+            let errorMessage = String(cString: sqlite3_errmsg(db))
+            print("Error creating table: \(errorMessage)")
+        } else {
+            print("Table created successfully")
+        }
+    }
+
+    // Other database functions (insert, fetch, etc.) can be added here
+}
