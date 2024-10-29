@@ -1,0 +1,97 @@
+import SwiftUI
+
+struct ContentView: View {
+    // State variables to store expenses, revenue, and net profit
+    @State private var expenses: Double = 0.0
+    @State private var revenue: Double = 0.0
+    @State private var newExpense: String = ""
+    @State private var newRevenue: String = ""
+    
+    var netProfit: Double {
+        return revenue - expenses
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                Text("Pocket Planner")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .padding()
+
+                // Expenses Section
+                VStack(alignment: .leading) {
+                    Text("Expenses: $\(expenses, specifier: "%.2f")")
+                        .font(.title2)
+                        .padding(.bottom, 5)
+
+                    HStack {
+                        TextField("Add expense", text: $newExpense)
+                            .keyboardType(.decimalPad)
+                            .padding()
+                            .background(Color(UIColor.systemGray6))
+                            .cornerRadius(10)
+
+                        Button(action: {
+                            if let expenseAmount = Double(newExpense) {
+                                expenses += expenseAmount
+                                newExpense = ""
+                            }
+                        }) {
+                            Text("Add Expense")
+                                .padding()
+                                .background(Color.red)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding(.bottom, 20)
+                }
+
+                // Revenue Section
+                VStack(alignment: .leading) {
+                    Text("Revenue: $\(revenue, specifier: "%.2f")")
+                        .font(.title2)
+                        .padding(.bottom, 5)
+
+                    HStack {
+                        TextField("Add revenue", text: $newRevenue)
+                            .keyboardType(.decimalPad)
+                            .padding()
+                            .background(Color(UIColor.systemGray6))
+                            .cornerRadius(10)
+
+                        Button(action: {
+                            if let revenueAmount = Double(newRevenue) {
+                                revenue += revenueAmount
+                                newRevenue = ""
+                            }
+                        }) {
+                            Text("Add Revenue")
+                                .padding()
+                                .background(Color.green)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                    }
+                    .padding(.bottom, 20)
+                }
+
+                // Net Profit Section
+                Text("Net Profit: $\(netProfit, specifier: "%.2f")")
+                    .font(.title)
+                    .padding(.top, 20)
+
+                Spacer()
+            }
+            .padding()
+            .navigationTitle("Pocket Planner")
+        }
+    }
+}
+
+struct ContentView_Previews: PreviewProvider {
+    static var previews: some View {
+        ContentView()
+    }
+}
